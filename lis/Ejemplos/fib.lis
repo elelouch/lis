@@ -1,0 +1,16 @@
+n:=8;
+if n=1 then ans := 0 else
+  if n=2 | n=3 then ans := 1 else
+  a := 0;
+  b := 1;
+  j := 0;
+  repeat
+      temp := b;
+      b := b + a;
+      a := temp;
+      j := j + 1
+  until j = n-3
+  end;
+  ans := a + b
+  end
+end

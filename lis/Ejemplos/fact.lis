@@ -1,0 +1,12 @@
+/* Factorial de N */
+
+N := 6;
+ans := 1;
+
+if N < 2 then skip else
+	repeat
+		ans := ans * N;
+		N := N - 1
+	until N = 1
+	end
+end
