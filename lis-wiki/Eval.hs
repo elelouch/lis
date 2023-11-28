@@ -2,72 +2,85 @@ module Eval where
 
 ------------------ CON MANEJO DE ERRORES --------------------------------------
 
-import AST
--- type Env = [(Variable,Integer)]
-type Env = Either Error [(Variable,Integer)]
-data Error = DivByZero | VarNotFound deriving Show
+-- import AST
+-- -- type Env = [(Variable,Integer)]
+-- type Env = Either Error [(Variable,Integer)]
+-- data Error = DivByZero | VarNotFound deriving Show
+-- 
+-- env = []
+-- 
+-- lookfor name [] = Left VarNotFound
+-- lookfor name ((varname,val) : vs) = 
+--     if name == varname 
+--         then Right val
+--         else lookfor name vs
+-- 
+-- update name val [] = [(name,val)]
+-- update name newval ((varname,val):vs) = 
+--     if name == varname
+--         then ((name,newval):vs)
+--         else (varname,val) : update name newval vs
+-- 
+-- evalIntExp (NVal x) s = Right x
+-- evalIntExp (Var name) s = lookfor name s
+-- evalIntExp (Neg x) s = 
+--     case evalIntExp x s of
+--         Left err -> Left err
+--         Right val -> Right $ (- val)
+-- evalIntExp (Add x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (+)
+-- evalIntExp (Sub x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (-)
+-- evalIntExp (Mult x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (*)
+-- evalIntExp (Div x y) s = 
+--     let divisorAux = evalIntExp y s
+--     in case divisorAux of
+--         Left err -> Left err
+--         Right divisor -> if divisor == 0 
+--                             then Left DivByZero
+--                             else evalValues (evalIntExp x s) divisorAux (div)
+-- evalBoolExp (BTrue) s = Right True
+-- evalBoolExp (BFalse) s = Right False
+-- evalBoolExp (Or a b) s = evalValues (evalBoolExp a s) (evalBoolExp b s) (||)
+-- evalBoolExp (And a b) s = evalValues (evalBoolExp a s) (evalBoolExp b s) (&&)
+-- evalBoolExp (Lt a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (<)
+-- evalBoolExp (Gt a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (>)
+-- evalBoolExp (Eq a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (==)
+-- 
+-- evalValues (Left err) _ _ = Left err
+-- evalValues _ (Left err) _ = Left err
+-- evalValues (Right x) (Right y) op = Right $ op x y
+-- 
+-- evalStmt Skip env = Right env
+-- evalStmt (Assign name val) env = 
+--     let res = evalIntExp val env
+--     in case res of
+--         Left err -> Left err
+--         Right result -> Right $ update name result env
+-- evalStmt (Seq stmt1 stmt2) env = 
+--     let newState = evalStmt stmt1 env
+--     in case newState of
+--         Left err -> Left err
+--         Right state -> evalStmt stmt2 state
+-- 
+-- evalStmt (While b s) env = evalStmt (If b (Seq s (While b s)) Skip) env
+-- evalStmt (For b s2 body) env = evalStmt (While b (Seq body s2)) env
+-- 
+-- evalStmt (If b s1 s2) env = 
+--     let boolResAux = evalBoolExp b env
+--     in case boolResAux of
+--            Left err -> Left err
+--            Right boolRes -> evalStmt (if boolRes then s1 else s2) env
+-- 
+-- evalStmt (TempAssign varname val s) env =
+--     let oldVal = lookfor varname env
+--         envAux = case (oldVal, evalIntExp val env) of
+--                         (Left err, _) -> Left err
+--                         (_, Left err) -> Left err
+--                         (Right _, Right newVal) -> evalStmt s (update varname newVal env)
+--     in case (envAux, oldVal) of 
+--            (Left err, _) -> Left err
+--            (_, Left err) -> Left err
+--            (Right newEnv, Right original) -> Right $ update varname original newEnv
 
-env = []
-
-lookfor name [] = Left VarNotFound
-lookfor name ((varname,val) : vs) = 
-    if name == varname 
-        then Right val
-        else lookfor name vs
-
-update name val [] = [(name,val)]
-update name newval ((varname,val):vs) = 
-    if name == varname
-        then ((name,newval):vs)
-        else (varname,val) : update name newval vs
-
-evalIntExp (NVal x) s = Right x
-evalIntExp (Var name) s = lookfor name s
-evalIntExp (Neg x) s = 
-    case evalIntExp x s of
-        Left err -> Left err
-        Right val -> Right $ (- val)
-evalIntExp (Add x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (+)
-evalIntExp (Sub x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (-)
-evalIntExp (Mult x y) s = evalValues (evalIntExp x s) (evalIntExp y s) (*)
-evalIntExp (Div x y) s = 
-    let divisorAux = evalIntExp y s
-    in case divisorAux of
-        Left err -> Left err
-        Right divisor -> if divisor == 0 
-                            then Left DivByZero
-                            else evalValues (evalIntExp x s) divisorAux (div)
-evalBoolExp (BTrue) s = Right True
-evalBoolExp (BFalse) s = Right False
-evalBoolExp (Or a b) s = evalValues (evalBoolExp a s) (evalBoolExp b s) (||)
-evalBoolExp (And a b) s = evalValues (evalBoolExp a s) (evalBoolExp b s) (&&)
-evalBoolExp (Lt a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (<)
-evalBoolExp (Gt a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (>)
-evalBoolExp (Eq a b) s = evalValues (evalIntExp a s) (evalIntExp b s) (==)
-
-evalValues (Left err) _ _ = Left err
-evalValues _ (Left err) _ = Left err
-evalValues (Right x) (Right y) op = Right $ op x y
-
-evalStmt Skip env = Right env
-evalStmt (Assign name val) env = 
-    let res = evalIntExp val env
-    in case res of
-        Left err -> Left err
-        Right result -> Right $ update name result env
-evalStmt (Seq stmt1 stmt2) env = 
-    let newState = evalStmt stmt1 env
-    in case newState of
-        Left err -> Left err
-        Right state -> evalStmt stmt2 state
-
-evalStmt (While b s) env = evalStmt (If b (Seq s (While b s)) Skip) env
-
-evalStmt (If b s1 s2) env = 
-    let boolResAux = evalBoolExp b env
-    in case boolResAux of
-           Left err -> Left err
-           Right boolRes -> evalStmt (if boolRes then s1 else s2) env
 
 ------------------- SIN MANEJO DE ERRORES ------------------------------
 

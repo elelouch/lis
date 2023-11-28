@@ -11,7 +11,8 @@ languageDefinition = emptyDef {
     commentEnd = "*/",
     commentLine = "//",
     nestedComments = False,
-    reservedNames = ["if","then","else","while","and","or","not","do","done","true","false"],
+    reservedNames = ["if","then","else","while","and","or","not", 
+                      "do","done","true","false", "for", "temp"],
     reservedOpNames = ["+","-","*","/",":=","==","<",">"],
     identStart = letter 
 }
@@ -105,16 +106,35 @@ stmtexp = do reserved "if"
              iexp <- intexp
              return $ Assign varid iexp
       <|> do reserved "while"
-             b <- boolexp
+             b <- parens boolexp
              reserved "do"
              s <- stmt
              reserved "done"
              return $ While b s
+      <|> do reserved "for"
+             forcons <- forhead
+             reserved "do"
+             body <- stmt
+             reserved "done"
+             return $ forcons body
+      <|> do reserved "temp"
+             tempCons <- parens (do varid <- identifier
+                                    reservedOp ";"
+                                    iexp <- intexp
+                                    return $ TempAssign varid iexp)
+             reserved "in"
+             s <- stmt
+             return $ tempCons s
       <|> return Skip
+
+forhead = parens (do bexp <- boolexp
+                     reservedOp ";"
+                     s2 <- stmt
+                     return $ For bexp s2)
 
 
 parseFile file = 
     do program <- readFile file
        case (parse (cleanParse stmt) "" program) of
            Left e -> print e >> fail "parser error"
-           Right ast -> return $ evalStmt ast []
+           Right ast -> return $ evalStmt ast env

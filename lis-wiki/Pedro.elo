@@ -1,8 +1,7 @@
 i = 4;
 j = 5;
+while (i < 3) do
+    i := i + 1
+done
 
-while (i < 3) {
-    i+=1;
-}
-if (pedro < 3) {
-    
+

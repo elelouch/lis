@@ -23,4 +23,6 @@ data Stmt = Skip
           | Seq Stmt Stmt
           | If BoolExp Stmt Stmt
           | While BoolExp Stmt
-          | Assign Variable IntExp deriving Show
+          | Assign Variable IntExp 
+          | For BoolExp Stmt Stmt 
+          | TempAssign Variable IntExp Stmt deriving Show

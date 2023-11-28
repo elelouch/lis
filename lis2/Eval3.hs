@@ -16,9 +16,10 @@ newtype StateErrorTick a = StateErrorTick { runStateErrorTick :: Env -> Maybe (a
 
 instance Monad StateErrorTick where
     return x = StateErrorTick (\s -> Just (x, s, 0))
-    m >>= f = StateErrorTick (\s -> do (v, s', t) <- runStateErrorTick m s
-                                       (v', s'', t') <- runStateErrorTick (f v) s'
+    m >>= f = StateErrorTick (\s -> do (v, s', t) <- (runStateErrorTick m) s
+                                       (v', s'', t') <- (runStateErrorTick (f v)) s'
                                        return (v', s'', t + t'))
+
 --    m >>= f = StateErrorTick (\s -> case runStateErrorTick m s of
 --                                      Nothing -> Nothing
 --                                      Just (v, s', t) -> case runStateErrorTick (f v) s' of
