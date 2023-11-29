@@ -1,0 +1,8 @@
+procedure main {
+    list <- [5,10,30,22,6];
+    ar0 = 0;
+    ar1 = len(list) - 1;
+    invoke mergesort;
+};
+
+procedure insertionSort

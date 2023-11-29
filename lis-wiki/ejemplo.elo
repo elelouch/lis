@@ -1,6 +1,15 @@
 hast := 0;
 saracatunga := 3;
-i := 0;
-for (i < 10; i := i + 1) do 
-    temp (i;1) in hast := hast + i;
-done;
+lista <- [];
+for (i = 0; i < 10; i++) {
+    if(i %  2 == 0) {
+        print (lista[i]);
+    };
+    invoke pedro;
+};
+
+procedure pedro {
+   while (i < 10) {
+       i++
+    }
+}
