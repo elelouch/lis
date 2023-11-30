@@ -2,15 +2,20 @@ module AST where
 type Variable = String
 type ProcEnv = [(Variable,Comm)]
 
+data Type = L List | I Integer deriving Eq
+
+type List = [Integer]
+
+
 data IntExp = Const Integer
             | Var Variable
             | Neg IntExp
             | Sub IntExp IntExp
             | Add IntExp IntExp
             | Div IntExp IntExp
+            | LLen Variable
+            | LVar Variable IntExp
             | Mult IntExp IntExp deriving Show
-
-data ListExp = Cons IntExp ListExp | Empty
 
 data BoolExp = BTrue 
              | BFalse
@@ -27,4 +32,9 @@ data Comm = Skip
           | If BoolExp Comm Comm
           | While BoolExp Comm
           | Assign Variable IntExp 
-          | For IntExp BoolExp IntExp Comm deriving Show
+          | For IntExp BoolExp IntExp Comm 
+          | AssignList Variable List
+          | SetAt IntExp IntExp Variable
+          | Invoke Variable deriving Show
+
+-- Para tail uso el parser

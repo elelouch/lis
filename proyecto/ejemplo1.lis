@@ -1,8 +1,11 @@
 procedure main {
-    list <- [5,10,30,22,6];
-    ar0 = 0;
-    ar1 = len(list) - 1;
-    invoke mergesort;
+    x = 0;
+    lista <= [1,2,3];
+    while (x < 10) {
+        x = x + 1;
+    };
 };
 
-procedure insertionSort
+procedure insertionSort {
+    y = y + 1;
+};

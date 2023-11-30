@@ -13,8 +13,8 @@ languageDefinition = emptyDef {
     commentLine = "//",
     nestedComments = False,
     reservedNames = ["if","then","else","while","and","or","not",
-                      "true","false", "for","procedure","invoke"],
-    reservedOpNames = ["+","-","*","/","=","==","<",">","++","--","<-", "and","or","not"],
+                      "true","false", "for","procedure","invoke", "len"],
+    reservedOpNames = ["+","-","*","/","=","==","<",">","++","--","<=","and","or","not"],
     identStart = letter 
 }
 
@@ -22,7 +22,9 @@ languageDefinition = emptyDef {
 lexer = Token.makeTokenParser languageDefinition
 parens = Token.parens lexer
 braces = Token.braces lexer
+brackets = Token.brackets lexer
 semi = Token.semi lexer
+comma = Token.comma lexer
 integer = Token.integer lexer
 reservedOp = Token.reservedOp lexer
 whiteSpace = Token.whiteSpace lexer
@@ -48,11 +50,16 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
             [Prefix (reservedOp "not" >> return Not)]]
 
 -- Promocionamos los constructores Var y Const a monadas, con identifier e integer
--- para que realicen computaciones dentro. 
+-- para que realicen computaciones dentro. Puedo reemplazar algunos do's.
 -- liftM f monad = do {result <- monad; return (f result)}
 intTerm = parens intExp
        <|> liftM Var identifier -- Var (identifier)
        <|> liftM Const integer
+       <|> do listId <- identifier
+              index <- brackets intExp
+              return $ LVar listId index
+       <|> liftM LLen (do {reserved "len"; parens identifier})
+              
 
 boolTerm = parens boolExp
         <|> (reserved "true" >> return BTrue)
@@ -73,8 +80,7 @@ proc = do reserved "procedure"
           c <- braces comm
           return (procId,c)
 
-comm = do list <- comm' `endBy1`  semi
-          return $ Seq list
+comm = liftM Seq (comm' `endBy1`  semi)
 
 comm' = do reserved "while"
            b <- parens boolExp
@@ -85,10 +91,19 @@ comm' = do reserved "while"
             c1 <- braces comm 
             c2 <- (reserved "else" >> braces comm) <|> return Skip
             return $ If b c1 c2
-     <|> do id <- identifier
-            reservedOp "="
-            i <- intExp
-            return $ Assign id i
+     <|> try (do id <- identifier
+                 reservedOp "="
+                 i <- intExp
+                 return $ Assign id i)
+     <|> try (do id <- identifier
+                 reservedOp "<="
+                 list <- brackets $ integer `sepBy` comma
+                 return $ AssignList id list)
+     <|> try (do listId <- identifier
+                 i <- brackets intExp
+                 reservedOp "="
+                 newVal <- intExp
+                 return $ SetAt i newVal listId)
      <|> return Skip
 
 lisParser = do s <- whiteSpace
