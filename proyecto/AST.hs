@@ -1,20 +1,29 @@
 module AST where
+import Data.Data
+
 type Variable = String
-type ProcEnv = [(Variable,Comm)]
 
-data Type = L List | I Integer deriving Eq
+-- utilizar toConstr para tomar los constructores y compararlos en el eval
 
-type List = [Integer]
+-- ya no puedo parsear listas con integer, tengo que usar intExp
+type IntExpList = [IntExp]
 
+-- Como parseo listas y entero a la vez en assign
+-- exp?
+data ListExp = LVar Variable 
+             | LConst IntExpList 
+             | LCons IntExp ListExp
+             | LTail ListExp deriving Show
 
+-- LVar y Var van a terminar devolviendo algo del env
 data IntExp = Const Integer
             | Var Variable
             | Neg IntExp
             | Sub IntExp IntExp
             | Add IntExp IntExp
             | Div IntExp IntExp
-            | LLen Variable
-            | LVar Variable IntExp
+            | LLen ListExp
+            | LVal IntExp ListExp 
             | Mult IntExp IntExp deriving Show
 
 data BoolExp = BTrue 
@@ -26,15 +35,15 @@ data BoolExp = BTrue
              | Lt IntExp IntExp
              | Gt IntExp IntExp deriving Show
 
+-- Considerar manejar clases como data Error = TypeError | NotFound | DivByZero
+-- hacer un update que no agregue al final y tal vez tire Nothing
+-- hacer un add que agregue al principio
 
+data VarType = IExp IntExp | List ListExp deriving Show
 data Comm = Skip
           | Seq [Comm]
           | If BoolExp Comm Comm
           | While BoolExp Comm
-          | Assign Variable IntExp 
-          | For IntExp BoolExp IntExp Comm 
-          | AssignList Variable List
-          | SetAt IntExp IntExp Variable
+          | Assign Variable VarType 
+          | For Comm BoolExp Comm Comm 
           | Invoke Variable deriving Show
-
--- Para tail uso el parser

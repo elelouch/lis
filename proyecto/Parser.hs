@@ -13,8 +13,9 @@ languageDefinition = emptyDef {
     commentLine = "//",
     nestedComments = False,
     reservedNames = ["if","then","else","while","and","or","not",
-                      "true","false", "for","procedure","invoke", "len"],
-    reservedOpNames = ["+","-","*","/","=","==","<",">","++","--","<=","and","or","not"],
+                      "true","false", "for","procedure","invoke", "len",
+                      "cons", "tail"],
+    reservedOpNames = ["+","-","*","/","=","==","<",">","++","--","and","or","not"],
     identStart = letter 
 }
 
@@ -40,7 +41,7 @@ intExp = buildExpressionParser intOps intTerm
 boolExp = buildExpressionParser boolOps boolTerm
 --              parser que retorne el operador
 intOps = [ [(Infix (reservedOp "+" >> return Add) AssocLeft),
-            (Infix (reservedOp "-" >> return Sub) AssocLeft)],
+            (Infix (reservedOp "-" >> return Sub) AssocRight)],
            [(Infix (reservedOp "*" >> return Mult) AssocLeft),
              (Infix (reservedOp "/" >> return Div) AssocLeft)],
            [Prefix (reservedOp "-" >> return Neg)]]
@@ -53,13 +54,12 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
 -- para que realicen computaciones dentro. Puedo reemplazar algunos do's.
 -- liftM f monad = do {result <- monad; return (f result)}
 intTerm = parens intExp
-       <|> liftM Var identifier -- Var (identifier)
        <|> liftM Const integer
-       <|> do listId <- identifier
-              index <- brackets intExp
-              return $ LVar listId index
-       <|> liftM LLen (do {reserved "len"; parens identifier})
-              
+       <|> try (do l <- listExp
+                   index <- brackets intExp
+                   return $ LVal index l)
+       <|> liftM Var identifier -- Var (identifier)
+       <|> liftM LLen (reserved "len" >> parens listExp)
 
 boolTerm = parens boolExp
         <|> (reserved "true" >> return BTrue)
@@ -82,29 +82,58 @@ proc = do reserved "procedure"
 
 comm = liftM Seq (comm' `endBy1`  semi)
 
-comm' = do reserved "while"
-           b <- parens boolExp
-           c <- braces comm 
-           return $ While b c
-     <|> do reserved "if"
-            b <- parens boolExp
-            c1 <- braces comm 
-            c2 <- (reserved "else" >> braces comm) <|> return Skip
-            return $ If b c1 c2
-     <|> try (do id <- identifier
-                 reservedOp "="
-                 i <- intExp
-                 return $ Assign id i)
-     <|> try (do id <- identifier
-                 reservedOp "<="
-                 list <- brackets $ integer `sepBy` comma
-                 return $ AssignList id list)
-     <|> try (do listId <- identifier
-                 i <- brackets intExp
-                 reservedOp "="
-                 newVal <- intExp
-                 return $ SetAt i newVal listId)
+comm' = whileParser
+     <|> ifParser
+     <|> forParser
+     <|> assignParser
+     <|> liftM Invoke (reserved "invoke" >> identifier)
      <|> return Skip
+
+listExp = liftM LVar identifier
+       <|> liftM LConst (brackets $ intExp `sepBy` comma)
+       <|> do reserved "cons" 
+              parens (do i <- intExp
+                         comma
+                         l <- listExp
+                         return $ LCons i l)
+       <|> do reserved "tail"
+              l <- parens listExp
+              return $ LTail l
+
+assignParser =try (do varname <- identifier
+                      reservedOp "<-"
+                      list <- listExp
+                      return $ Assign varname (List list))
+            <|> try (do varname <- identifier
+                        reservedOp "="
+                        i <- intExp
+                        return $ Assign varname (IExp i))
+
+forParser = do reserved "for"
+               f <- forParensParser
+               c <- braces comm
+               return (f c)
+
+forParensParser = parens (do a1 <- assignParser
+                             semi
+                             b <- boolExp
+                             semi
+                             a2 <- assignParser
+                             return $ For a1 b a2) 
+                          
+
+whileParser =  do reserved "while"
+                  b <- parens boolExp
+                  c <- braces comm 
+                  return $ While b c
+
+ifParser = do reserved "if"
+              b <- parens boolExp
+              c1 <- braces comm 
+              c2 <- (reserved "else" >> braces comm) <|> return Skip
+              return $ If b c1 c2
+
+
 
 lisParser = do s <- whiteSpace
                ast <- proc `endBy1` semi

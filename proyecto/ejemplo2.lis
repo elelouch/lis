@@ -1,0 +1,8 @@
+procedure main {
+    int[] x = [1,2,3];
+    int[] y = [];
+
+    while (x < 10){
+        x++;
+    };
+};
