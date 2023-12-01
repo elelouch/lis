@@ -1,0 +1,34 @@
+procedure main {
+    list <- [3,2,1,5];
+    invoke insertionSort;
+};
+
+procedure insertionSort{
+    listAux <- [];
+    listResult <- [];
+    maxIndex = 0;
+    invoke getMaxIndex;
+    invoke insertMaxModifyList;
+};
+
+procedure getMaxIndex {
+    length = len(list);
+    for(i = 0; i < length; i = i + 1){
+        if(list[maxIndex] < list[i]){
+            maxIndex = i;
+        };
+    };
+};
+
+procedure insertMaxModifyList {
+    length = len(list) - 2;
+    for(j = 0; j < length - 2; j = j + 1){
+        if(j == maxIndex){
+            listResult <- cons(list[maxIndex],listResult);
+        } else {
+            listAux <- cons(list[0],listAux);
+        };
+        list <- tail(list);
+    };
+    list <- listAux;
+};

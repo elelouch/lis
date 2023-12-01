@@ -5,13 +5,17 @@ import Control.Monad (liftM,ap)
 import Data.Data
 
 
-type IntegerList = [Integer]
-type Env = ([(Variable,Integer)],[(Variable,IntegerList)])
+type IntList = [Int]
+type Env = ([(Variable,Int)],[(Variable,IntList)])
 type ProcEnv = [(Variable,Comm)]
+
+
 
 data SaveState a = S a
                   | DivByZero 
                   | ProcedureNotFound 
+                  | TailEmptyList 
+                  | IndexOutOfBounds
                   | VarNotFound deriving Show
 
 newtype StateErrorProcs a = StateErrorProcs { 
@@ -22,10 +26,10 @@ class Monad m => MonadProcs m where
    lookforProc :: Variable -> m Comm
 
 class Monad m => MonadState m where 
-    updateInt :: Variable -> Integer -> m ()
-    updateList :: Variable -> IntegerList -> m ()
-    lookforInt :: Variable -> m Integer
-    lookforList :: Variable -> m IntegerList
+    updateInt :: Variable -> Int -> m ()
+    updateList :: Variable -> Int -> m ()
+    lookforInt :: Variable -> m Int
+    lookforList :: Variable -> m Int
 
 
 class Monad m => MonadTick m where
@@ -35,6 +39,8 @@ class Monad m => MonadError m where
     throwDivByZero :: m a
     throwVarNotFound :: m a
     throwProcedureNotFound :: m a
+    throwTailEmptyList :: m a
+    throwIndexOutOfBounds :: m a
 
 -- Recordar que esta monada guarda la ultima operacion realizada
 instance Monad StateErrorProcs where 
@@ -79,6 +85,8 @@ instance Monad SaveState where
                     DivByZero -> DivByZero
                     ProcedureNotFound -> ProcedureNotFound  
                     VarNotFound -> VarNotFound  
+                    TailEmptyList -> TailEmptyList  
+                    IndexOutOfBounds -> IndexOutOfBounds
 
 instance Applicative SaveState where
     pure = return
@@ -112,6 +120,25 @@ evalComm (If b c1 c2) = do cond <- evalBoolExp b
 evalComm (While b c) = evalComm (If b (Seq [c, While b c]) Skip)
 evalComm (For assign1 b assign2 c) = evalComm (Seq [assign1, While b (Seq [c,assign2])] )
 
+evalListExp (LConst []) = return []
+evalListExp (LVar name) = lookforList name
+evalListExp (LConst (i:is)) = do x <- evalIntExp i
+                                 xs <- evalListExp (LConst is)
+                                 return (x:xs)
+evalListExp (LCons val list) = do vs <- evalListExp list
+                                  v <- evalIntExp val
+                                  return (v:vs)
+evalListExp (LTail list) = do l <- evalIntExp list
+                              if null l
+                                  then throwTailEmptyList
+                                  else return (tail l)
+evalIntExp (LVal index list) = do i <- evalIntExp index
+                                  l <- evalListExp list
+                                  if (i >= length l || i < 0)
+                                      then throwIndexOutOfBounds
+                                      else return (l !! i)
+
+evalIntExp (LLen name) = liftM length (lookforList name)
 evalIntExp (Const n) = return n
 evalIntExp (Var name) = lookforInt name
 evalIntExp (Neg v) = do val <- evalIntExp v

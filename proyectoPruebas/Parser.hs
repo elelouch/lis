@@ -21,13 +21,14 @@ languageDefinition = emptyDef {
 
 -- lexeme : unidad basica de significado
 -- Reasigno las definiciones para no tener que estar usando
+
 lexer = Token.makeTokenParser languageDefinition
 parens = Token.parens lexer
 braces = Token.braces lexer
 brackets = Token.brackets lexer
 semi = Token.semi lexer
 comma = Token.comma lexer
-integer = Token.integer lexer
+int = liftM fromInteger (Token.integer lexer)
 reservedOp = Token.reservedOp lexer
 whiteSpace = Token.whiteSpace lexer
 reserved = Token.reserved lexer
@@ -50,7 +51,7 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
 -- Evito usar do con liftM.
 -- liftM f monad = do {result <- monad; return (f result)}
 intTerm = parens intExp
-       <|> liftM Const integer
+       <|> liftM Const int
        <|> try (do l <- listExp
                    index <- brackets intExp
                    return $ LVal index l)
@@ -103,25 +104,27 @@ listExp = liftM LVar identifier
               return $ LTail l
 
 -- parser para asignar
-assignParser = try (do varname <- identifier
-                       reservedOp "<-"
-                       list <- listExp
-                       return $ LAssign varname list)
-            <|> try (do varname <- identifier
+assignParser = try(assignIntExpParser) <|> try (assignListExpParser)
+
+assignIntExpParser = do varname <- identifier
                         reservedOp "="
                         i <- intExp
-                        return $ Assign varname i)
+                        return $ Assign varname i
+assignListExpParser = do varname <- identifier
+                         reservedOp "<-"
+                         list <- listExp
+                         return $ LAssign varname list
 
 forParser = do reserved "for"
                f <- forParensParser
                c <- braces comm
                return (f c)
 
-forParensParser = parens (do a1 <- assignParser
+forParensParser = parens (do a1 <- assignIntExpParser
                              semi
                              b <- boolExp
                              semi
-                             a2 <- assignParser
+                             a2 <- assignIntExpParser
                              return $ For a1 b a2) 
                           
 
@@ -149,7 +152,6 @@ parseAux str = case parse lisParser "" str of
 
 parseFile file = do program <- readFile file
                     parseAux program
-
 
 -- Para implementar funciones :
 -- En este parser, cada vez que encuentro funciones con procedures,  

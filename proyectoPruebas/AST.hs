@@ -14,7 +14,7 @@ data ListExp = LVar Variable
              | LTail ListExp deriving Show
 
 -- LVar y Var van a terminar devolviendo algo del env
-data IntExp = Const Integer
+data IntExp = Const Int
             | Var Variable
             | Neg IntExp
             | Sub IntExp IntExp
@@ -39,7 +39,7 @@ data Comm = Skip
           | While BoolExp Comm
           | Assign Variable IntExp 
           | LAssign Variable ListExp
-          | For IntExp BoolExp IntExp Comm 
+          | For Comm BoolExp Comm Comm 
           | Invoke Variable deriving Show
 
 -- El for podria tener IntExp, tipo
