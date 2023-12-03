@@ -1,3 +1,4 @@
+module Parser (parser) where
 import AST
 import Eval
 import Control.Monad
@@ -20,15 +21,16 @@ languageDefinition = emptyDef {
 }
 
 -- lexeme : unidad basica de significado
--- Reasigno las definiciones para no tener que estar usando
-
+-- Reasigno las definiciones para no tener que usar Token ni tener problemas con definiciones
+toInt :: Integer -> Int
+toInt = fromIntegral
 lexer = Token.makeTokenParser languageDefinition
 parens = Token.parens lexer
 braces = Token.braces lexer
 brackets = Token.brackets lexer
 semi = Token.semi lexer
 comma = Token.comma lexer
-int = liftM fromInteger (Token.integer lexer)
+integer = liftM toInt (Token.integer lexer)
 reservedOp = Token.reservedOp lexer
 whiteSpace = Token.whiteSpace lexer
 reserved = Token.reserved lexer
@@ -51,7 +53,7 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
 -- Evito usar do con liftM.
 -- liftM f monad = do {result <- monad; return (f result)}
 intTerm = parens intExp
-       <|> liftM Const int
+       <|> liftM Const integer
        <|> try (do l <- listExp
                    index <- brackets intExp
                    return $ LVal index l)
@@ -80,8 +82,7 @@ proc = do reserved "procedure"
           c <- braces comm
           return (procId,c)
 
--- parseo una secuencia de comandos como una lista
-comm = liftM Seq (comm' `endBy1`  semi)
+comm = comm' `chainl1` (reservedOp ";" >> return Seq)
 
 -- Separe los parsers de comandos por legibilidad
 comm' = whileParser
@@ -104,29 +105,32 @@ listExp = liftM LVar identifier
               return $ LTail l
 
 -- parser para asignar
-assignParser = try(assignIntExpParser) <|> try (assignListExpParser)
-
-assignIntExpParser = do varname <- identifier
-                        reservedOp "="
-                        i <- intExp
-                        return $ Assign varname i
-assignListExpParser = do varname <- identifier
-                         reservedOp "<-"
-                         list <- listExp
-                         return $ LAssign varname list
+assignParser = try (do varname <- identifier
+                       reservedOp "="
+                       i <- intExp
+                       return $ Assign varname i)
+            <|> try (do varname <- identifier
+                        reservedOp "<-"
+                        list <- listExp
+                        return $ LAssign varname list)
+            <|> do varname <- identifier
+                   reservedOp "++"
+                   return (Assign varname (Add (Var varname) (Const 1)))
+            <|> do varname <- identifier
+                   reservedOp "--"
+                   return (Assign varname (Sub (Var varname) (Const 1)))
 
 forParser = do reserved "for"
                f <- forParensParser
                c <- braces comm
                return (f c)
 
-forParensParser = parens (do a1 <- assignIntExpParser
+forParensParser = parens (do a1 <- assignParser
                              semi
                              b <- boolExp
                              semi
-                             a2 <- assignIntExpParser
+                             a2 <- assignParser
                              return $ For a1 b a2) 
-                          
 
 whileParser =  do reserved "while"
                   b <- parens boolExp
@@ -143,18 +147,10 @@ lisParser = do s <- whiteSpace
                ast <- proc `endBy1` semi
                eof
                return ast
+-- cada vez que encuentro procedures, las guardo en una lista como pares junto 
+-- a su nombre
 
-parseAux str = case parse lisParser "" str of
-               Left err -> error $ show err
-               Right ast -> return $ (runStateErrorProcs ((evalComm . snd . head) ast)) [] ([],[])
-               -- Right ast -> return $ ast
-                               
+parser s = case parse lisParser "" s of 
+               Left err -> print err >> fail "parser error"
+               Right listProcs -> return listProcs
 
-parseFile file = do program <- readFile file
-                    parseAux program
-
--- Para implementar funciones :
--- En este parser, cada vez que encuentro funciones con procedures,  
--- lo unico que tengo que hacer es guardarlas en una lista de pares 
--- [(IdFuncion, Comm)]
--- Y pasarlo al evaluador

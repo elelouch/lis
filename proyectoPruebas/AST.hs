@@ -6,8 +6,6 @@ type Variable = String
 -- ya no puedo parsear listas con integer, tengo que usar intExp
 type IntExpList = [IntExp]
 
--- Como parseo listas y entero a la vez en assign
--- exp?
 data ListExp = LVar Variable 
              | LConst IntExpList 
              | LCons IntExp ListExp
@@ -34,7 +32,7 @@ data BoolExp = BTrue
              | Gt IntExp IntExp deriving Show
 
 data Comm = Skip
-          | Seq [Comm]
+          | Seq Comm Comm
           | If BoolExp Comm Comm
           | While BoolExp Comm
           | Assign Variable IntExp 

@@ -1,0 +1,39 @@
+procedure main {
+    list <- [3,2,1,5];
+    invoke insertionSort
+};
+
+procedure insertionSort{
+    originalLength = len(list);
+    listResult <- [];
+    while (len(list) > 0){
+        invoke getLargestNumIndex;
+        invoke removeLargestFromList
+    };
+    list <- listResult
+};
+ 
+procedure getLargestNumIndex {
+    largestNumIndex = 0;
+    listLength = len(list);
+    for(i = 0; i < listLength; i = i + 1){
+        if(list[i] > list[largestNumIndex]){
+            largestNumIndex = i
+        }
+    }
+};
+
+procedure removeLargestFromList {
+    listAux <- [];
+    listLength = len(list);
+
+    for(i = 0; i < listLength; i = i + 1) {
+        if(i == largestNumIndex){
+            listResult <- cons(list[0],listResult)
+        } else {
+            listAux <- cons(list[0],listAux)
+        };
+        list <- tail(list)
+    };
+    list <- listAux
+};
