@@ -1,0 +1,34 @@
+voy a extender el lenguaje de la siguiente manera :
+
+Gramatica :
+comm ::= ... | "for (" var "=" intexp ";" boolexp ";" var "=" intexp ") {" comm "}"
+             | var "=" intexp
+             | var "<-" listexp
+             | intexp "++"
+             | intexp "--"
+
+listexp  ::=  var 
+            | "[]"
+            | seq
+            | "cons (" intexp "," listexp ")"
+            | "tail (" listexp ")"
+            | var "[" intexp "]"
+            | "len(" var ")"
+
+seq ::= "[" seq'  
+seq' ::= intexp ("," seq' | "]")
+
+Coloquialmente :
+- for c
+- uso "=" para asignacion
+- ++, -- que agregan uno a una expresion entera
+- Subrutinas : Cada vez que una subrutina se llama, agrego 1 al contador 
+de llamadas en la monada con estado. Tendrian la siguiente forma : 
+
+procedure nombre_rutina {
+    comm
+} 
+
+invoke nombre_rutina
+
+- show(intexp), salida a stdout.

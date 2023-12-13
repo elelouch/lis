@@ -1,0 +1,12 @@
+Resumen de ideas : 
+- Guardar el estado como un par, donde tengo ([(String,Int)],[(String,IntList)]).
+Por lo que opte por utilizar dos funciones lookfor, una para ver las variables enteras
+y otra para las listas.
+- For de c implementado, donde el parser solo admite asignaciones.
+- Para poder utilizar procedimientos utilice el parser endby, tomando procedimientos  
+separados por comas.
+- Las funciones tipo len(lista) y lista[i] las decidi implementar en la parte  
+de expresiones enteras.
+- Plantee agregar un comando LAssign, para poder asignar listas a una variable.
+- Para que no quede raro, al while le decidi agregar llaves tambien.
+- La monada que utiliza el evaluador cuenta invocaciones.
