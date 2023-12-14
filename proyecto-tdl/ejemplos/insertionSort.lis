@@ -16,7 +16,7 @@ procedure insertionSort{
 procedure getLargestNumIndex {
     largestNumIndex = 0;
     listLength = len(list);
-    for(i = 0; i < listLength; i = i + 1){
+    for(i = 0; i < listLength; i++){
         if(list[i] > list[largestNumIndex]){
             largestNumIndex = i
         }
@@ -27,7 +27,7 @@ procedure removeLargestFromList {
     listAux <- [];
     listLength = len(list);
 
-    for(i = 0; i < listLength; i = i + 1) {
+    for(i = 0; i < listLength; i++) {
         if(i == largestNumIndex){
             listResult <- cons(list[0],listResult)
         } else {

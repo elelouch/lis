@@ -1,0 +1,6 @@
+procedure main {
+    list <- [1,2,3];
+    pedro = 22;
+    pedro = list;
+    list = pedro
+};

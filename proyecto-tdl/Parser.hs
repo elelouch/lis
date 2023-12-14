@@ -15,8 +15,8 @@ languageDefinition = emptyDef {
     nestedComments = False,
     reservedNames = ["if","then","else","while","and","or","not",
                       "true","false", "for","procedure","invoke", "len",
-                      "cons", "tail"],
-    reservedOpNames = ["+","-","*","/","=","==","<",">","++","--","and","or","not"],
+                      "cons", "tail", "=","++","--"],
+    reservedOpNames = ["+","-","*","/","==","<",">","and","or","not"],
     identStart = letter 
 }
 
@@ -54,14 +54,14 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
 -- liftM f monad = do {result <- monad; return (f result)}
 
 intTerm = parens intExp
+       <|> do (name,i) <- varAssignAux
+              return (Assign name i)
        <|> liftM Const integer
+       <|> liftM Len (reserved "len" >> parens listExp)
        <|> try (do l <- listExp
                    index <- brackets intExp
                    return (ListAt index l))
-       <|> liftM Var identifier 
-       <|> liftM Len (reserved "len" >> parens listExp)    
-       <|> do (name,i) <- varAssignAux 
-              return (Assign name i)
+       <|> try (liftM Var identifier)
 
 boolTerm = parens boolExp
         <|> (reserved "true" >> return BTrue)
@@ -97,27 +97,30 @@ comm' = whileParser
      <|> liftM Invoke (reserved "invoke" >> identifier)
      <|> return Skip
 
-assignParser = do 
+assignParser = try (do 
     name <- identifier
     reserved "<-"
     list <- listExp
-    return (AssignList name list)
-    <|> do (name,i) <- varAssignAux
-           return (AssignVar name i)
+    return (AssignList name list))
+    <|> try (do 
+        (name,i) <- varAssignAux
+        return (AssignVar name i))
 
 -- varAssignAux se encarga de parsear las asignaciones tipo
 -- =, ++, -- y devolver una tupla de nombre y expresion entera
-varAssignAux = do 
+varAssignAux = try (do 
     name <- identifier 
     reserved "="
     i <- intExp
-    return (name,i)
-    <|> do name <- identifier
-           reservedOp "++"
-           return (name ,(Add (Var name) (Const 1)))
-    <|> do name <- identifier
-           reservedOp "--"
-           return (name, (Add (Var name) (Const 1)))
+    return (name,i))
+    <|> try (do 
+        name <- identifier
+        reservedOp "++"
+        return (name, (Add (Var name) (Const 1))))
+    <|> try (do 
+        name <- identifier
+        reservedOp "--"
+        return (name, (Add (Var name) (Const 1))))
 
 forParser = do 
     reserved "for"
@@ -125,23 +128,26 @@ forParser = do
     c <- braces comm
     return (f c)
 
-forParens = parens (do i1 <- intExp
-                       semi
-                       b <- boolExp
-                       semi
-                       i2 <- intExp
-                       return (For i1 b i2)) 
+forParens = parens (do 
+    i1 <- intExp
+    semi
+    b <- boolExp
+    semi
+    i2 <- intExp
+    return (For i1 b i2)) 
 
-whileParser =  do reserved "while"
-                  b <- parens boolExp
-                  c <- braces comm 
-                  return (While b c)
+whileParser =  do 
+    reserved "while"
+    b <- parens boolExp
+    c <- braces comm 
+    return (While b c)
 
-ifParser = do reserved "if"
-              b <- parens boolExp
-              c1 <- braces comm 
-              c2 <- (reserved "else" >> braces comm) <|> return Skip
-              return (If b c1 c2)
+ifParser = do 
+    reserved "if"
+    b <- parens boolExp
+    c1 <- braces comm 
+    c2 <- (reserved "else" >> braces comm) <|> return Skip
+    return (If b c1 c2)
 
 -- Parseo nombre de la lista o lista constante o cons o tail
 listExp = liftM ListVar identifier
@@ -156,13 +162,23 @@ listExp = liftM ListVar identifier
               list <- parens listExp
               return (Tail list)
 
-lisParser = do s <- whiteSpace
-               astList <- proc `endBy1` semi
-               eof
-               return astList
+lisParser = do 
+    s <- whiteSpace
+    astList <- proc `endBy1` semi
+    eof
+    return astList
 
+-- cada AST es un procedure
 parser s = case parse lisParser "" s of 
                Left err -> print err >> fail "parser error"
                Right astList -> return astList
 
--- cada AST es un procedure
+-- parseFile file =
+--    do program  <- readFile file
+--       case parse lisParser "" program of
+--         Left e  -> print e >> fail "parse error"
+--         Right r -> return r
+-- 
+-- parseEvalFile file = do astList <- parseFile file
+--                         return (eval astList)
+

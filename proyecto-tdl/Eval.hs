@@ -141,6 +141,14 @@ evalComm (Invoke name) = do
     tick
     evalComm c   
 
+evalComm (AssignVar name iexp) = do
+    i <- evalIntExp iexp
+    updateInt name i 
+
+evalComm (AssignList name lexp) = do
+    list <- evalListExp lexp
+    updateList name list
+
 -- Listas
 
 evalListExp (ListVar name) = lookforList name
@@ -246,3 +254,9 @@ evalBoolExp (Eq l r) = do
 --              action2
 -- dofunc2 = action1 >>= (\_-> action2)
 -- dofunc2 = action1 >> action2
+
+
+-- Por que esto no necesita diferenciar listas de enteros
+-- Al separar los enteros de las listas y que los lookfor y update para cada  
+-- uno sean diferente, en una asignacion no voy a encontrar una lista 
+-- en la zona de enteros y viceversa

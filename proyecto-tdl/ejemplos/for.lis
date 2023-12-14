@@ -1,0 +1,6 @@
+procedure main {
+    x = 2;
+    for(i = 0; i < 10; i++){
+        x = x + 2
+    }
+};
