@@ -11,7 +11,7 @@ import Parser(parser)
 
 
 -- Modificar este import para usar diferentes evaluadores
-import Eval(eval,getInvokes,getState,getInvokesNState, getAll)
+import Eval(eval)
 ---------------------------------------------------------
 
 main :: IO ()
@@ -20,15 +20,11 @@ main = do args <- getArgs
              []      -> printHelp
              (arg:_) -> run arg
 
--- Ejecuta un programa a partir de su archivo fuente
 run :: [Char] -> IO ()
 run ifile = do s <- readFile ifile
                procs <- parser s
-               (print . filtro . eval) procs
+               (print . eval) procs
 
-filtro = getInvokesNState
--- para que se vea mejor dejo a disposicion las funciones
--- getInvokes,getState,getInvokesNState,getAll
 
 -- El evaluador necesita una funcion main para poder comenzar
 

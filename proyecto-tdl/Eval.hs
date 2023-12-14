@@ -1,4 +1,4 @@
-module Eval(eval,getInvokes,getState,getAll,getInvokesNState) where
+module Eval(eval) where
 import AST
 import Control.Applicative (Applicative(..))
 import Control.Monad (liftM,ap)
@@ -15,11 +15,6 @@ data SaveState a = S a
                   | TailEmptyList 
                   | IndexOutOfBounds
                   | VarNotFound deriving Show
-
-getState (S (_,_,state,_)) = state
-getInvokes (S (_,_,_,invokes)) = invokes
-getAll (S a) = a
-getInvokesNState (S (_,_,state,invokes)) = (state,invokes)
 
 newtype StateErrorProcs a = StateErrorProcs { 
     runStateErrorProcs :: ProcEnv -> Env -> SaveState (a,ProcEnv,Env,Int)
