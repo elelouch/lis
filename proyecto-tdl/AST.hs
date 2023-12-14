@@ -6,21 +6,23 @@ type Variable = String
 -- ya no puedo parsear listas con integer, tengo que usar intExp
 type IntExpList = [IntExp]
 
-data ListExp = LVar Variable 
-             | LConst IntExpList 
-             | LCons IntExp ListExp
-             | LTail ListExp deriving Show
+data ListExp = ListVar Variable 
+             | List IntExpList 
+             | Cons IntExp ListExp
+             | Tail ListExp deriving Show
 
 -- LVar y Var van a terminar devolviendo algo del env
 data IntExp = Const Int
             | Var Variable
+            | Assign Variable IntExp 
             | Neg IntExp
             | Sub IntExp IntExp
             | Add IntExp IntExp
             | Div IntExp IntExp
-            | LLen ListExp
-            | LVal IntExp ListExp 
-            | Mult IntExp IntExp deriving Show
+            | Len ListExp
+            | ListAt IntExp ListExp 
+            | Mult IntExp IntExp 
+            deriving Show
 
 data BoolExp = BTrue 
              | BFalse
@@ -29,18 +31,18 @@ data BoolExp = BTrue
              | Not BoolExp
              | Eq IntExp IntExp
              | Lt IntExp IntExp
-             | Gt IntExp IntExp deriving Show
+             | Gt IntExp IntExp 
+             deriving Show
 
 data Comm = Skip
           | Seq Comm Comm
           | If BoolExp Comm Comm
           | While BoolExp Comm
-          | Assign Variable IntExp 
-          | LAssign Variable ListExp
-          | For Comm BoolExp Comm Comm 
-          | Invoke Variable deriving Show
+          | For IntExp BoolExp IntExp Comm 
+          | AssignVar Variable IntExp
+          | AssignList Variable ListExp
+          | Invoke Variable 
+          deriving Show
 
--- El for podria tener IntExp, tipo
--- For IntExp BoolExp IntExp Comm
--- Para esto, las asignaciones deberian poder evaluar al entero asignado
--- x = 3 evalua a 3
+-- Puedo hacer por debajo del parser las asignaciones, o por debajo de un
+-- AssignInt que devuelva eso

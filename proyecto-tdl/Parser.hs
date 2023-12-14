@@ -52,13 +52,16 @@ boolOps = [ [(Infix (reservedOp "or" >> return Or) AssocLeft),
 -- Promocionamos los constructores Var y Const a monadas para que realicen computaciones dentro. 
 -- Evito usar do con liftM.
 -- liftM f monad = do {result <- monad; return (f result)}
+
 intTerm = parens intExp
        <|> liftM Const integer
        <|> try (do l <- listExp
                    index <- brackets intExp
-                   return $ LVal index l)
-       <|> liftM Var identifier -- Var (identifier)
-       <|> liftM LLen (reserved "len" >> parens listExp)    
+                   return (ListAt index l))
+       <|> liftM Var identifier 
+       <|> liftM Len (reserved "len" >> parens listExp)    
+       <|> do (name,i) <- varAssignAux 
+              return (Assign name i)
 
 boolTerm = parens boolExp
         <|> (reserved "true" >> return BTrue)
@@ -71,16 +74,18 @@ relTerm = try (relTerm' (reservedOp "<") Lt)
        <|> try (relTerm' (reservedOp "==") Eq)
 
 -- Parser general para relaciones
-relTerm' p f = do i1 <- intExp
-                  p 
-                  i2 <- intExp
-                  return $ f i1 i2
+relTerm' p f = do 
+    i1 <- intExp
+    p 
+    i2 <- intExp
+    return $ f i1 i2
 
 -- parser de procedures, lo utilizo con endBy al comienzo del parseo 
-proc = do reserved "procedure"
-          procId <- identifier
-          c <- braces comm
-          return (procId,c)
+proc = do 
+    reserved "procedure"
+    procId <- identifier
+    c <- braces comm
+    return (procId,c)
 
 comm = comm' `chainl1` (reservedOp ";" >> return Seq)
 
@@ -92,65 +97,72 @@ comm' = whileParser
      <|> liftM Invoke (reserved "invoke" >> identifier)
      <|> return Skip
 
--- Parseo nombre de la lista o lista constante o cons o tail
-listExp = liftM LVar identifier
-       <|> liftM LConst (brackets $ intExp `sepBy` comma)
-       <|> do reserved "cons" 
-              parens (do i <- intExp
-                         comma
-                         l <- listExp
-                         return $ LCons i l)
-       <|> do reserved "tail"
-              l <- parens listExp
-              return $ LTail l
+assignParser = do 
+    name <- identifier
+    reserved "<-"
+    list <- listExp
+    return (AssignList name list)
+    <|> do (name,i) <- varAssignAux
+           return (AssignVar name i)
 
--- parser para asignar
-assignParser = try (do varname <- identifier
-                       reservedOp "="
-                       i <- intExp
-                       return $ Assign varname i)
-            <|> try (do varname <- identifier
-                        reservedOp "<-"
-                        list <- listExp
-                        return $ LAssign varname list)
-            <|> do varname <- identifier
-                   reservedOp "++"
-                   return (Assign varname (Add (Var varname) (Const 1)))
-            <|> do varname <- identifier
-                   reservedOp "--"
-                   return (Assign varname (Sub (Var varname) (Const 1)))
+-- varAssignAux se encarga de parsear las asignaciones tipo
+-- =, ++, -- y devolver una tupla de nombre y expresion entera
+varAssignAux = do 
+    name <- identifier 
+    reserved "="
+    i <- intExp
+    return (name,i)
+    <|> do name <- identifier
+           reservedOp "++"
+           return (name ,(Add (Var name) (Const 1)))
+    <|> do name <- identifier
+           reservedOp "--"
+           return (name, (Add (Var name) (Const 1)))
 
-forParser = do reserved "for"
-               f <- forParensParser
-               c <- braces comm
-               return (f c)
+forParser = do 
+    reserved "for"
+    f <- forParens
+    c <- braces comm
+    return (f c)
 
-forParensParser = parens (do a1 <- assignParser
-                             semi
-                             b <- boolExp
-                             semi
-                             a2 <- assignParser
-                             return $ For a1 b a2) 
+forParens = parens (do i1 <- intExp
+                       semi
+                       b <- boolExp
+                       semi
+                       i2 <- intExp
+                       return (For i1 b i2)) 
 
 whileParser =  do reserved "while"
                   b <- parens boolExp
                   c <- braces comm 
-                  return $ While b c
+                  return (While b c)
 
 ifParser = do reserved "if"
               b <- parens boolExp
               c1 <- braces comm 
               c2 <- (reserved "else" >> braces comm) <|> return Skip
-              return $ If b c1 c2
+              return (If b c1 c2)
+
+-- Parseo nombre de la lista o lista constante o cons o tail
+listExp = liftM ListVar identifier
+       <|> liftM List (brackets $ intExp `sepBy` comma)
+       <|> do reserved "cons" 
+              parens (do 
+                 i <- intExp
+                 comma
+                 l <- listExp
+                 return $ Cons i l)
+       <|> do reserved "tail"
+              list <- parens listExp
+              return (Tail list)
 
 lisParser = do s <- whiteSpace
-               ast <- proc `endBy1` semi
+               astList <- proc `endBy1` semi
                eof
-               return ast
--- cada vez que encuentro procedures, las guardo en una lista como pares junto 
--- a su nombre
+               return astList
 
 parser s = case parse lisParser "" s of 
                Left err -> print err >> fail "parser error"
-               Right listProcs -> return listProcs
+               Right astList -> return astList
 
+-- cada AST es un procedure

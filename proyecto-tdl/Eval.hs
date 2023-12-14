@@ -44,7 +44,6 @@ class Monad m => MonadError m where
     throwProcedureNotFound :: m a
     throwTailEmptyList :: m a
     throwIndexOutOfBounds :: m a
-    throwMainProcedureNotFound :: m a
 
 -- Recordar que esta monada guarda la ultima operacion realizada
 instance Monad StateErrorProcs where 
@@ -113,84 +112,128 @@ instance MonadError StateErrorProcs where
     throwIndexOutOfBounds = StateErrorProcs(\_ _-> IndexOutOfBounds)
     throwTailEmptyList = StateErrorProcs(\_ _-> TailEmptyList)
 
+-- eval, que toma una lista de ASTs y devuelve
+-- o ProcedureNotFound (falta el main)
+-- o una monada a la que se le evaluo el main proc
 eval procenv = 
     case lookfor "main" procenv of
         Nothing -> ProcedureNotFound
         Just mainProc -> (runStateErrorProcs (evalComm mainProc)) procenv ([],[])
 
+-- Comandos 
+
 evalComm Skip = return ()
-evalComm (Seq c1 c2) = evalComm c1 >> evalComm c2
-evalComm (Assign var i) = do i' <- evalIntExp i
-                             updateInt var i'
-evalComm (If b c1 c2) = do b' <- evalBoolExp b
-                           evalComm (if b' then c1 else c2)
+evalComm (Seq c1 c2) = do 
+    evalComm c1
+    evalComm c2
 
-evalComm (For c1 b c2 body) = evalComm (Seq c1 (While b (Seq body c2)))
+evalComm (If b c1 c2) = do 
+    b' <- evalBoolExp b
+    evalComm (if b' then c1 else c2)
+
+evalComm (For iexp1 bexp iexp2 body) = do 
+    evalIntExp iexp1
+    evalComm (If bexp (Seq body (For iexp2 bexp iexp2 body)) Skip)
+
 evalComm (While b c) = evalComm (If b (Seq c (While b c)) Skip)
+evalComm (Invoke name) = do 
+    c <- lookforProc name
+    tick
+    evalComm c   
 
-evalComm (LAssign var l) = do l' <- evalListExp l
-                              updateList var l'
+-- Listas
 
-evalComm (Invoke name) = do c <- lookforProc name
-                            tick
-                            evalComm c   
+evalListExp (ListVar name) = lookforList name
+evalListExp (List []) = return []
+evalListExp (List (i:is)) = do 
+    x <- evalIntExp i
+    xs <- evalListExp (List is)
+    return (x:xs)
+evalListExp (Cons val l) = do 
+    v <- evalIntExp val
+    vs <- evalListExp l
+    return (v:vs)
+evalListExp (Tail list) = do 
+    l <- evalListExp list
+    if null l
+        then throwTailEmptyList
+        else return (tail l)
 
-evalListExp (LVar name) = lookforList name
-evalListExp (LConst []) = return []
-evalListExp (LConst (i:is)) = do x <- evalIntExp i
-                                 xs <- evalListExp (LConst is)
-                                 return (x:xs)
-evalListExp (LCons val l) = do vs <- evalListExp l
-                               v <- evalIntExp val
-                               return (v:vs)
-evalListExp (LTail list) = do l <- evalListExp list
-                              if null l
-                                  then throwTailEmptyList
-                                  else return (tail l)
+-- Enteros
 
 evalIntExp (Const n) = return n
-evalIntExp (LVal i l) = do i' <- evalIntExp i
-                           l' <- evalListExp l
-                           if (i' >= length l' || i' < 0)
-                               then throwIndexOutOfBounds
-                               else return (l' !! i')
-evalIntExp (LLen l) = do l' <- evalListExp l
-                         return $ length l'
+evalIntExp (ListAt i l) = do 
+    i' <- evalIntExp i
+    l' <- evalListExp l
+    if (i' >= length l' || i' < 0)
+        then throwIndexOutOfBounds
+        else return (l' !! i')
+
+evalIntExp (Len l) = do 
+    l' <- evalListExp l
+    return $ length l'
+
 evalIntExp (Var name) = lookforInt name
-evalIntExp (Neg v) = do val <- evalIntExp v
-                        return (negate val)
-evalIntExp (Add l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r 
-                          return (lval + rval)
-evalIntExp (Sub l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r 
-                          return (lval - rval)
-evalIntExp (Mult l r) = do lval <- evalIntExp l
-                           rval <- evalIntExp r 
-                           return (lval * rval)
-evalIntExp (Div l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r 
-                          if rval == 0 
-                             then throwDivByZero
-                             else return (lval `div` rval)
+evalIntExp (Neg v) = do
+    val <- evalIntExp v
+    return (negate val)
+
+evalIntExp (Add l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r 
+    return (lval + rval)
+
+evalIntExp (Sub l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r 
+    return (lval - rval)
+
+evalIntExp (Mult l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r 
+    return (lval * rval)
+
+evalIntExp (Div l r) = do
+    lval <- evalIntExp l
+    rval <- evalIntExp r 
+    if rval == 0 
+    then throwDivByZero
+    else return (lval `div` rval)
+
+evalIntExp (Assign name iexp) = do 
+    i <- evalIntExp iexp
+    updateInt name i
+    return i
+
+-- Booleanos
 
 evalBoolExp BTrue = return True
 evalBoolExp BFalse = return False
-evalBoolExp (And l r) = do lval <- evalBoolExp l
-                           rval <- evalBoolExp r 
-                           return (lval && rval)
-evalBoolExp (Or l r) = do lval <- evalBoolExp l
-                          rval <- evalBoolExp r 
-                          return (lval || rval)
-evalBoolExp (Lt l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r
-                          return (lval < rval)
-evalBoolExp (Gt l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r
-                          return (lval > rval)
-evalBoolExp (Eq l r) = do lval <- evalIntExp l
-                          rval <- evalIntExp r
-                          return (lval == rval)
+evalBoolExp (And l r) = do 
+    lval <- evalBoolExp l
+    rval <- evalBoolExp r 
+    return (lval && rval)
+
+evalBoolExp (Or l r) = do 
+    lval <- evalBoolExp l
+    rval <- evalBoolExp r 
+    return (lval || rval)
+
+evalBoolExp (Lt l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r
+    return (lval < rval)
+
+evalBoolExp (Gt l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r
+    return (lval > rval)
+
+evalBoolExp (Eq l r) = do 
+    lval <- evalIntExp l
+    rval <- evalIntExp r
+    return (lval == rval)
+
 -- notacion do 
 --
 -- dofunc = do x <- action1
