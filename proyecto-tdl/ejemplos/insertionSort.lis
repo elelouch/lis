@@ -7,28 +7,27 @@ procedure insertionSort{
     originalLength = len(list);
     listResult <- [];
     while (len(list) > 0){
-        invoke getLargestNumIndex;
+        invoke getIndexLargestNum;
         invoke removeLargestFromList
     };
     list <- listResult
 };
  
-procedure getLargestNumIndex {
-    largestNumIndex = 0;
-    listLength = len(list);
-    for(i = 0; i < listLength; i++){
-        if(list[i] > list[largestNumIndex]){
-            largestNumIndex = i
+procedure getIndexLargestNum {
+    index = 0;
+    size = len(list);
+    for(i = 0; i < size; i = i + 1){
+        if(list[i] > list[index]){
+            index = i
         }
     }
 };
 
 procedure removeLargestFromList {
     listAux <- [];
-    listLength = len(list);
-
-    for(i = 0; i < listLength; i++) {
-        if(i == largestNumIndex){
+    size = len(list);
+    for(i = 0; i < size; i = i + 1){
+        if(i == index){
             listResult <- cons(list[0],listResult)
         } else {
             listAux <- cons(list[0],listAux)

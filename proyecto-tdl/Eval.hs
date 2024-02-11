@@ -5,11 +5,12 @@ import Control.Monad (liftM,ap)
 import Data.Data
 
 
-type IntList = [Int]
-type Env = ([(Variable,Int)],[(Variable,IntList)])
+data Holder = IntH Int | ListH [Int] deriving Show
+type Env = [(Variable,Holder)]
 type ProcEnv = [(Variable,Comm)]
 
 data SaveState a = S a
+                  | TypeError
                   | DivByZero 
                   | ProcedureNotFound 
                   | TailEmptyList 
@@ -24,16 +25,14 @@ class Monad m => MonadProcs m where
    lookforProc :: Variable -> m Comm
 
 class Monad m => MonadState m where 
-    updateInt :: Variable -> Int -> m ()
-    updateList :: Variable -> IntList -> m ()
-    lookforInt :: Variable -> m Int
-    lookforList :: Variable -> m IntList
-
+    lookfor :: Variable -> m Holder
+    update :: Variable -> Holder -> m ()
 
 class Monad m => MonadTick m where
     tick :: m ()
 
 class Monad m => MonadError m where 
+    throwTypeError :: m a
     throwDivByZero :: m a
     throwVarNotFound :: m a
     throwProcedureNotFound :: m a
@@ -48,30 +47,26 @@ instance Monad StateErrorProcs where
                             (newComp,ps',e',invokes') <- (runStateErrorProcs (f lastComp)) ps e
                             return $ (newComp,ps',e',invokes + invokes'))
 
-lookfor _ [] = Nothing
-lookfor name ((varname,val):vs) = 
+lookfor' _ [] = Nothing
+lookfor' name ((varname,val):vs) = 
     if varname == name 
         then Just val 
-        else lookfor name vs
-update name nval [] = [(name,nval)]
-update name nval ((varname,val):vs) = 
+        else lookfor' name vs
+update' name nval [] = [(name,nval)]
+update' name nval ((varname,val):vs) = 
     if name == varname 
         then ((name,nval):vs) 
-        else (varname,val) : update name nval vs
+        else (varname,val) : update' name nval vs
 
 instance MonadProcs StateErrorProcs where 
     lookforProc name =
-       StateErrorProcs (\proceds env -> maybe ProcedureNotFound (\c -> S (c,proceds,env,0)) (lookfor name proceds))
+       StateErrorProcs (\proceds env -> maybe ProcedureNotFound (\c -> S (c,proceds,env,0)) (lookfor' name proceds))
 
 instance MonadState StateErrorProcs where 
-    lookforInt name =
-        StateErrorProcs (\proceds env -> maybe VarNotFound (\v -> S (v,proceds,env,0)) (lookfor name (fst env)))
-    lookforList name =
-        StateErrorProcs (\proceds env -> maybe VarNotFound (\v -> S (v,proceds,env,0)) (lookfor name (snd env)))
-    updateInt name val = 
-        StateErrorProcs (\proceds env -> S ((),proceds, (update name val (fst env), snd env), 0))
-    updateList name val = 
-        StateErrorProcs (\proceds env -> S ((),proceds, (fst env,update name val (snd env)), 0))
+    lookfor name =
+        StateErrorProcs (\proceds env -> maybe VarNotFound (\v -> S (v,proceds,env,0)) (lookfor' name env))
+    update name val = 
+        StateErrorProcs (\proceds env -> S ((),proceds, update' name val env, 0))
 
 instance MonadTick StateErrorProcs where 
     tick = StateErrorProcs (\proceds env -> S ((), proceds, env, 1))
@@ -80,6 +75,7 @@ instance Monad SaveState where
     return x = S x
     (>>=) m f = case m of 
                     S x -> f x
+                    TypeError -> TypeError
                     DivByZero -> DivByZero
                     ProcedureNotFound -> ProcedureNotFound  
                     VarNotFound -> VarNotFound  
@@ -101,6 +97,7 @@ instance Functor StateErrorProcs where
     fmap = liftM
 
 instance MonadError StateErrorProcs where
+    throwTypeError = StateErrorProcs(\_ _ -> TypeError)
     throwDivByZero = StateErrorProcs(\_ _ -> DivByZero)
     throwVarNotFound = StateErrorProcs(\_ _-> VarNotFound)
     throwProcedureNotFound = StateErrorProcs(\_ _-> ProcedureNotFound)
@@ -110,76 +107,84 @@ instance MonadError StateErrorProcs where
 -- eval, que toma una lista de ASTs y devuelve
 -- o ProcedureNotFound (falta el main)
 -- o una monada a la que se le evaluo el main proc
-eval procenv = 
-    case lookfor "main" procenv of
+
+eval astList = 
+    case lookfor' "main" astList of
         Nothing -> ProcedureNotFound
-        Just mainProc -> (runStateErrorProcs (evalComm mainProc)) procenv ([],[])
+        Just mainProc -> (runStateErrorProcs (evalComm mainProc)) astList []
 
 -- Comandos 
 
 evalComm Skip = return ()
-evalComm (Seq c1 c2) = do 
+evalComm (Seq c1 c2) = evalComm c1 >> evalComm c2
+
+evalComm (If boolExp c1 c2) = do 
+    bool <- evalBoolExp boolExp
+    if bool 
+        then evalComm c1
+        else evalComm c2
+
+evalComm (For c1 bexp c2 forBody) = do 
     evalComm c1
-    evalComm c2
+    evalComm (If bexp (Seq (For forBody bexp c2 forBody) c2) Skip)
 
-evalComm (If b c1 c2) = do 
-    b' <- evalBoolExp b
-    evalComm (if b' then c1 else c2)
-
-evalComm (For iexp1 bexp iexp2 body) = do 
-    evalIntExp iexp1
-    evalComm (If bexp (Seq body (For iexp2 bexp iexp2 body)) Skip)
-
-evalComm (While b c) = evalComm (If b (Seq c (While b c)) Skip)
+evalComm (While bexp c) = evalComm (If bexp (Seq c (While bexp c)) Skip)
 evalComm (Invoke name) = do 
-    c <- lookforProc name
+    newAST <- lookforProc name
     tick
-    evalComm c   
+    evalComm newAST   
 
-evalComm (AssignVar name iexp) = do
-    i <- evalIntExp iexp
-    updateInt name i 
+evalComm (Assign name holder) =
+    case holder of
+        IntExpHolder iexp -> do int <- evalIntExp iexp
+                                update name (IntH int)
+        ListExpHolder lexp -> do list <- evalListExp lexp
+                                 update name (ListH list)
 
-evalComm (AssignList name lexp) = do
-    list <- evalListExp lexp
-    updateList name list
+evalListExp (ListVar name) = do
+    holder <- lookfor name
+    case holder of
+        ListH list -> return list
+        IntH _ -> throwTypeError
 
--- Listas
-
-evalListExp (ListVar name) = lookforList name
 evalListExp (List []) = return []
 evalListExp (List (i:is)) = do 
     x <- evalIntExp i
     xs <- evalListExp (List is)
     return (x:xs)
-evalListExp (Cons val l) = do 
-    v <- evalIntExp val
-    vs <- evalListExp l
+
+evalListExp (Cons iexp lexp) = do 
+    v <- evalIntExp iexp
+    vs <- evalListExp lexp
     return (v:vs)
-evalListExp (Tail list) = do 
-    l <- evalListExp list
+
+evalListExp (Tail lexp) = do 
+    l <- evalListExp lexp
     if null l
         then throwTailEmptyList
         else return (tail l)
 
--- Enteros
-
 evalIntExp (Const n) = return n
-evalIntExp (ListAt i l) = do 
-    i' <- evalIntExp i
-    l' <- evalListExp l
-    if (i' >= length l' || i' < 0)
+evalIntExp (ListAt iexp lexp) = do 
+    index <- evalIntExp iexp
+    list <- evalListExp lexp
+    if (index >= length list || index < 0)
         then throwIndexOutOfBounds
-        else return (l' !! i')
+        else return (list !! index)
 
-evalIntExp (Len l) = do 
-    l' <- evalListExp l
-    return $ length l'
+evalIntExp (Len lexp) = do 
+    list <- evalListExp lexp
+    return $ length list
 
-evalIntExp (Var name) = lookforInt name
-evalIntExp (Neg v) = do
-    val <- evalIntExp v
-    return (negate val)
+evalIntExp (Var name) = do 
+    holder <- lookfor name
+    case holder of 
+        IntH iexp -> return iexp
+        ListH _ -> throwTypeError
+        
+evalIntExp (Neg iexp) = do
+    int <- evalIntExp iexp
+    return (negate int)
 
 evalIntExp (Add l r) = do 
     lval <- evalIntExp l
@@ -202,13 +207,6 @@ evalIntExp (Div l r) = do
     if rval == 0 
     then throwDivByZero
     else return (lval `div` rval)
-
-evalIntExp (Assign name iexp) = do 
-    i <- evalIntExp iexp
-    updateInt name i
-    return i
-
--- Booleanos
 
 evalBoolExp BTrue = return True
 evalBoolExp BFalse = return False
@@ -236,22 +234,3 @@ evalBoolExp (Eq l r) = do
     lval <- evalIntExp l
     rval <- evalIntExp r
     return (lval == rval)
-
--- notacion do 
---
--- dofunc = do x <- action1
---             y <- action2 
---             return x + y
---
--- dofunc = action1 >>= (\x -> action2 >>= (\y -> return x + y))
---
--- dofunc2 = do action1
---              action2
--- dofunc2 = action1 >>= (\_-> action2)
--- dofunc2 = action1 >> action2
-
-
--- Por que esto no necesita diferenciar listas de enteros
--- Al separar los enteros de las listas y que los lookfor y update para cada  
--- uno sean diferente, en una asignacion no voy a encontrar una lista 
--- en la zona de enteros y viceversa
