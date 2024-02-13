@@ -95,14 +95,18 @@ comm' = whileParser
      <|> liftM Invoke (reserved "invoke" >> identifier)
      <|> return Skip
 
-assignParser = do name <- identifier
-                  holder <- (holderIntExp <|> holderListExp)
-                  return (Assign name holder)
+assignParser = try (do 
+    name <- identifier
+    holder <- (holderIntExp <|> holderListExp)
+    return (Assign name holder))
+   <|> try (do name <- identifier
+               op <- ((reserved "++" >> return Add) <|> (reserved "--" >> return Sub))
+               return (Assign name (IntExpHolder (op (Var name) (Const 1)))))
 
-holderIntExp = do
+holderIntExp = try (do
     reserved "="
     int <- intExp
-    return (IntExpHolder int)
+    return (IntExpHolder int))
 
 holderListExp = do
     reserved "<-"
@@ -164,6 +168,4 @@ parseFile file =
   do program  <- readFile file
      case parse lisParser "" program of
        Left e  -> print e >> fail "parse error"
-       Right r -> do a <- (do {a <- eval r; return a})
-                     return a
-                  
+       Right r -> return (eval r)

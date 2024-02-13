@@ -3,8 +3,7 @@ procedure main {
     invoke insertionSort
 };
 
-procedure insertionSort{
-    originalLength = len(list);
+procedure insertionSort {
     listResult <- [];
     while (len(list) > 0){
         invoke getIndexLargestNum;
@@ -16,7 +15,7 @@ procedure insertionSort{
 procedure getIndexLargestNum {
     index = 0;
     size = len(list);
-    for(i = 0; i < size; i = i + 1){
+    for(i = index; i < size; i = i + 1){
         if(list[i] > list[index]){
             index = i
         }

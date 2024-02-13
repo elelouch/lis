@@ -126,7 +126,7 @@ evalComm (If boolExp c1 c2) = do
 
 evalComm (For c1 bexp c2 forBody) = do 
     evalComm c1
-    evalComm (If bexp (Seq (For forBody bexp c2 forBody) c2) Skip)
+    evalComm (While bexp (Seq forBody c2))
 
 evalComm (While bexp c) = evalComm (If bexp (Seq c (While bexp c)) Skip)
 evalComm (Invoke name) = do 
