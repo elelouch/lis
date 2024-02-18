@@ -1,0 +1,77 @@
+comm ::= ...
+      | var = intexp 
+      | var <- listexp 
+      | for (comm boolexp comm) {comm}
+
+
+intexp ::= ...
+        | var "[" intexp "]"
+        | len "(" listexp ")"
+
+listexp  ::=  var 
+            | "[]"
+            | seq
+            | "cons (" intexp "," listexp ")"
+            | "tail (" listexp ")"
+
+seq ::= "[" seq'  
+seq' ::= intexp ("," seq' | "]")
+
+
+Semantica
+
+v ::=               (values)
+    nv              (numeric value)
+    lv              (list value)
+
+lv = nil
+   | cons nv lv
+
+LISTEXP, LAS BIG-STEP CON e SON IntExp (modificar la evaluacion).
+
+-------------------- List
+<lv, o> => cons nv lv
+
+-------------------- List
+<lv, o> => nil
+
+--------------------- ListVar
+<v, o> => o v
+
+<f, o> => cons nv lv   <e,o> => n
+------------------------------ Cons
+<cons(e, f), o> => <cons n (cons nv lv), o>
+
+
+<f, o> => nil   <e,o> => n
+------------------------------ Cons
+<cons(e, f), o> => <cons n nil, o>
+
+
+<f, o> => cons nv lv 
+----------------------------- Tail
+<tail(f), o> => <lv, o>
+
+
+<f,o> => cons nv lv    <e,o> => n1     n1 = 0
+------------------------------------------------- ListIndex
+<f[e], o>  => <nv, o> 
+
+<f,o> => cons nv lv           <e,o> => n1
+------------------------------------------ ListIndex
+<f[e], o> => <lv[n1-1], o>
+
+<f,o> => cons nv lv
+------------------------------- Len
+<len(f),o> => <len(lv) + 1, o>   
+
+<f,o> => nil
+------------------------------- Len
+<len(f),o> => <0, o>   
+
+<c1, o> ~> <skip, o'> 
+---------------------------------------------- For
+<for(c1;b;c2){c3}, o> ~> <while(b){c3,c2}, o'>
+
+------------------------------------------------------------ While
+<while(b){c}, o> ~> <if b then c; while(b){c} else skip, o'>
