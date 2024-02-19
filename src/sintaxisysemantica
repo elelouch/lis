@@ -21,8 +21,8 @@ seq' ::= intexp ("," seq' | "]")
 Semantica
 
 v ::=               (values)
-    nv              (numeric value)
-    lv              (list value)
+   | nv              (numeric value)
+   | lv              (list value)
 
 lv = nil
    | cons nv lv
