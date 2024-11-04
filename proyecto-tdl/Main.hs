@@ -11,7 +11,7 @@ import Parser(parser)
 
 
 -- Modificar este import para usar diferentes evaluadores
-import Eval(eval)
+import Eval(eval, SaveState(S))
 ---------------------------------------------------------
 
 main :: IO ()
@@ -23,8 +23,11 @@ main = do args <- getArgs
 run :: [Char] -> IO ()
 run ifile = do s <- readFile ifile
                procs <- parser s
-               (print . eval) procs
+               case eval procs of
+                   S (_,_,a,_) -> print a
+                   _ -> print "error"
 
+third (_,_,a,_) = a
 
 -- El evaluador necesita una funcion main para poder comenzar
 

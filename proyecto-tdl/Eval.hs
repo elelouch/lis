@@ -1,4 +1,4 @@
-module Eval(eval) where
+module Eval(eval, SaveState(S)) where
 import AST
 import Control.Applicative (Applicative(..))
 import Control.Monad (liftM,ap)
@@ -113,7 +113,7 @@ instance MonadError StateErrorProcs where
 eval procenv = 
     case lookfor "main" procenv of
         Nothing -> ProcedureNotFound
-        Just mainProc -> (runStateErrorProcs (evalComm mainProc)) procenv ([],[])
+        Just mainProc -> runStateErrorProcs (evalComm mainProc) procenv ([],[])
 
 -- Comandos 
 
