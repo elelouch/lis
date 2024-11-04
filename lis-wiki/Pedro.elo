@@ -1,7 +1,0 @@
-i = 4;
-j = 5;
-while (i < 3) do
-    i := i + 1
-done
-
-
